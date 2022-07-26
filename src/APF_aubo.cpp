@@ -16,7 +16,7 @@
 #include <moveit_msgs/RobotTrajectory.h>
 #include <moveit_msgs/RobotState.h>
 
-#define Change 10.0
+#define Change 20.0
 
 int main(int argc, char** argv)
 {
@@ -47,6 +47,8 @@ int main(int argc, char** argv)
 	robot_trajectory::RobotTrajectory path_trajectory(kinematic_model_const, "manipulator_i5");
 
 	std::vector<double> goal_joint_values(6);
+	//goal_joint_values = start_joint_values;
+	//goal_joint_values[4] = start_joint_values[4] - Change * M_PI / 180;
 	for (size_t ng = 0; ng < goal_joint_values.size(); ng++)
 		goal_joint_values[ng] = start_joint_values[ng] - Change * M_PI / 180;
 	group.setJointValueTarget(goal_joint_values);
@@ -58,7 +60,7 @@ int main(int argc, char** argv)
 	
 	path.push_back(start_joint_values);
 	std::vector<double> next_joint_state(6);
-	double step_length = 1 * M_PI / 180;
+	double step_length = 0.1 * M_PI / 180;
 	
 	while(1)
 	{
@@ -77,11 +79,11 @@ int main(int argc, char** argv)
 	planning.trajectory_.joint_trajectory.joint_names = joint_names;
 	planning.trajectory_.joint_trajectory.points.resize(path.size());
 	trajectory_msgs::JointTrajectoryPoint tp;
-	std::vector<double> velocity(joint_names.size(), step_length);
-	std::vector<double> acceleration(joint_names.size(), step_length);
+	std::vector<double> velocity(joint_names.size(), step_length );
+	std::vector<double> acceleration(joint_names.size(), step_length*100 );
 	for (size_t i =0; i < path.size(); i++)
 	{
-		ros::Duration step((i+1)*0.05);
+		ros::Duration step((i+1)*0.01);
 		tp.positions = path[i];
 		tp.time_from_start = step;
 		tp.velocities = velocity;
