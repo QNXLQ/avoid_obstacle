@@ -1,0 +1,27 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/usr/include/c++/5",
+                "/usr/include/x86_64-linux-gnu/c++/5",
+                "/usr/include/c++/5/backward",
+                "/usr/lib/gcc/x86_64-linux-gnu/5/include",
+                "/usr/local/include",
+                "/usr/lib/gcc/x86_64-linux-gnu/5/include-fixed",
+               " /usr/include/x86_64-linux-gnu",
+                "/usr/include",
+                "/home/nielei/catkin_ws/src/avoid_obstacle/include",
+                "/opt/ros/melodic/include",
+                "/usr/include/pcl-1.8"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/local/cuda-9.1/bin/gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}
