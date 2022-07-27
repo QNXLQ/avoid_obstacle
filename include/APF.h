@@ -63,16 +63,6 @@ struct std::hash<Point_3D>
 		return std::hash<double>()(p3d.x) ^ std::hash<double>()(p3d.y) ^ std::hash<double>()(p3d.z);
 	}
 };
-/*
-template<>
-struct std::equal_to<Point_3D>
-{
-	bool operator()(const Point_3D &p1, const Point_3D &p2) const
-	{
-		return p1.x == p2.x && p1.y == p2.y && p1.z == p2.z;
-	}
-};
-*/
 
 double sign(double number)
 {
@@ -120,10 +110,6 @@ bool check_collision(std::vector<double> joint_values, planning_scene_monitor::P
 	scene->setCurrentState(state);
 
 	robot_state::RobotState& current_state = scene->getCurrentStateNonConst();
-	//robot_state::RobotState copied_state = current_state;
-	//copied_state.setJointGroupPositions("manipulator", joint_values);
-	//copied_state.update();
-
 
 	return scene->isStateValid(current_state, "manipulator");
 }
@@ -348,44 +334,6 @@ void APF_path_planning_RT(std::vector<Point_3D> &obstacles, double resolution, s
 			break;
 		}
 	}
-	/*
-	while(1)
-	{
-		for (double base = joint_start[0] - step_length; base <= joint_start[0] + step_length; base += step_length)
-			for (double upper_arm = joint_start[1] - step_length; upper_arm <= joint_start[1] + step_length; upper_arm += step_length)
-				for (double forearm = joint_start[2] - step_length; forearm <= joint_start[2] + step_length; forearm += step_length)
-					for (double wrist1 = joint_start[3] - step_length; wrist1 <= joint_start[3] + step_length; wrist1 += step_length)
-						for (double wrist2 = joint_start[4] - step_length; wrist2 <= joint_start[4] + step_length; wrist2 += step_length)
-							for (double wrist3 = joint_start[5] - step_length; wrist3 <= joint_start[5] + step_length; wrist3 += step_length)
-							{
-								std::vector<double> joint_state = {base, upper_arm, forearm, wrist1, wrist2, wrist3};
-								//check collision
-								if (check_collision(joint_state, monitor_ptr_udef))
-									continue;
-								else
-								{
-									Point_3D eff;
-									FK_xyz(joint_state, eff);
-									Energy.push_back(APF_generate_RT(obstacles, resolution, eff, goal_coordinate));
-									joint_state_list.push_back(joint_state);
-								}
-							}
-		int index = min_element(Energy.begin(),Energy.end()) - Energy.begin();
-		path.push_back(joint_state_list[index]);
-		joint_start = joint_state_list[index];
-		for (size_t path_size = 0; path_size < path.back().size(); path_size++)
-			std::cout << path.back()[path_size] <<  "  ";
-		std::cout << std::endl;
-		Energy.clear();
-		joint_state_list.clear();
-		std::vector<std::vector<double>>::iterator it = path.end()-2;
-		if ((path.back() == joint_goal) || (path.back() == *it))
-		{
-			std::cout << "\033[41mFINISH APF+A*!" << "\033[0m" << std::endl;
-			break;
-		}
-	}
-	*/
 }
 
 void APF_path_planning_OL(std::unordered_map<Point_3D,double> APF_map, std::vector<double> joint_start, std::vector<double> joint_goal, std::vector<std::vector<double>> &path, planning_scene_monitor::PlanningSceneMonitorPtr monitor_ptr_udef)
