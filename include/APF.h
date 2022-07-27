@@ -129,8 +129,8 @@ void pc2octomap(pcl::PointCloud<pcl::PointXYZ> cloud,std::string output_filename
 	//PointCloud convert to Octomap
 	for (auto p:cloud.points)
 		tree.updateNode( octomap::point3d(p.x, p.y, p.z), true);
-	
-	//Save all cube center of octomap	
+	/*
+	//Save all cube center of octomap if is necessary
 	for (octomap::OcTree::leaf_iterator it = tree.begin_leafs(), end = tree.end_leafs();it!=end;++it)
 	{
 		m_p.x = it.getX() * 1000;
@@ -143,6 +143,7 @@ void pc2octomap(pcl::PointCloud<pcl::PointXYZ> cloud,std::string output_filename
 		}
 	}
 	fclose(fp);
+	*/
 }
 
 
