@@ -49,6 +49,10 @@ const double d6 =  0.0922;
 struct Point_3D
 {
 	double x, y, z;
+
+	bool operator == (const Point_3D &p1) const{
+		return this->x == p1.x && this->y == p1.y && this->z == p1.z;
+	}
 };
 
 template<>
@@ -59,7 +63,7 @@ struct std::hash<Point_3D>
 		return std::hash<double>()(p3d.x) ^ std::hash<double>()(p3d.y) ^ std::hash<double>()(p3d.z);
 	}
 };
-
+/*
 template<>
 struct std::equal_to<Point_3D>
 {
@@ -68,7 +72,7 @@ struct std::equal_to<Point_3D>
 		return p1.x == p2.x && p1.y == p2.y && p1.z == p2.z;
 	}
 };
-
+*/
 
 double sign(double number)
 {
