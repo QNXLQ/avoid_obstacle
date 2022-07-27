@@ -32,7 +32,9 @@ int main(int argc, char** argv)
 	
 	robot_model_loader::RobotModelLoader Robot_model_loader("robot_description");
 	robot_model::RobotModelConstPtr kinematic_model_const = Robot_model_loader.getModel();
-	
+	//robot_model::RobotModelPtr kinematic_model = Robot_model_loader.getModel();
+	//planning_scene::PlanningScene planning_Scene(kinematic_model);
+
 	//Get actual posicion
 	static const std::string PLANNING_GROUP = "manipulator_i5";
 	moveit::planning_interface::MoveGroupInterface group(PLANNING_GROUP);
@@ -86,14 +88,22 @@ int main(int argc, char** argv)
 		ros::Duration step((i+1)*0.01);
 		tp.positions = path[i];
 		tp.time_from_start = step;
-		tp.velocities = velocity;
-		tp.accelerations = acceleration;
+		if (i == path.size() - 1)		//Design   velocity and acceleration for  smooth trajectory
+		{
+			tp.velocities = {0, 0, 0, 0, 0, 0};
+			tp.accelerations = {-step_length*100, -step_length*100, -step_length*100, -step_length*100, -step_length*100, -step_length*100};
+		}
+		else
+		{
+			tp.velocities = velocity;
+			tp.accelerations = acceleration;
+		}
 		planning.trajectory_.joint_trajectory.points[i] = tp;
 	}
 		
 	group.execute(planning);
 	group.move();
-
+	
 	sleep(0.2);
 	group.setStartStateToCurrentState();
 	
