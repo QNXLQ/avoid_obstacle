@@ -1,13 +1,6 @@
 #ifndef _IK_H_
 #define _IK_H_
 
-#include <queue>
-
-#include <opencv2/calib3d/calib3d.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <opencv2/opencv.hpp>
-
-#include <ikfast_ur10.h>
 #include <APF.h>
 
 void random_pose_generator(IkReal* eerot, IkReal* eetrans)

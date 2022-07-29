@@ -1,19 +1,15 @@
 #include <ctime>
 #include <random>
 
-#include <IK.h>
 #include <APF.h>
-#include <msg_convert.h>
-#include <ikfast_ur10.h>
 
 #include <ros/duration.h>
 
-//#include <opencv2/calib3d/calib3d.hpp>
-//#include <opencv2/imgcodecs.hpp>
-//#include <opencv2/opencv.hpp>
-
 #include <trajectory_msgs/JointTrajectory.h>
 #include <trajectory_msgs/JointTrajectoryPoint.h>
+
+#include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/point_cloud_conversion.h>
 
 #include <moveit/robot_trajectory/robot_trajectory.h>
 #include <moveit/robot_state/robot_state.h>
@@ -35,18 +31,26 @@ int main(int argc, char** argv)
 	robot_model_loader::RobotModelLoader Robot_model_loader("robot_description");
 	robot_model::RobotModelPtr kinematic_model = Robot_model_loader.getModel();
 	robot_model::RobotModelConstPtr kinematic_model_const = Robot_model_loader.getModel();
-	planning_scene::PlanningScene planning_Scene(kinematic_model);
+
 	planning_scene_monitor::PlanningSceneMonitorPtr monitor_ptr_udef = std::make_shared<planning_scene_monitor::PlanningSceneMonitor>("robot_description");
 
 		
 	//Get All obstacles and set the scope of influence
 	std::vector<Point_3D> obstacles;
 	double resolution = 0.032;
-	string filename =  "pcds1652087193344162";
-	pcl::PointCloud<pcl::PointXYZ> cloud;
-	pcl::io::loadPCDFile (("/home/nielei/pcds/" + filename + ".pcd").c_str(), cloud);
-	pc2octomap(cloud, filename, resolution, obstacles);
-	std::cout << "\033[41mFINISH OBSTACLE LOAD!" << "\033[0m" << std::endl;
+	
+	boost::shared_ptr<sensor_msgs::PointCloud2 const> pc2;
+	pc2 = ros::topic::waitForMessage<sensor_msgs::PointCloud2>("/pcl_output", ros::Duration(5));
+	if (pc2 != NULL)
+	{
+		sensor_msgs::PointCloud out_pointcloud;
+		sensor_msgs::convertPointCloud2ToPointCloud(*pc2, out_pointcloud);
+		pc2octomap(out_pointcloud, resolution, obstacles);
+		std::cout << "\033[41mFINISH OBSTACLE LOAD!" << "\033[0m" << std::endl;
+	}
+	else
+		std::cout << "No existing pointcloud or octomap" << std::endl;
+
 	//Get actual posicion
 	static const std::string PLANNING_GROUP = "manipulator";
 	moveit::planning_interface::MoveGroupInterface group(PLANNING_GROUP);
@@ -93,18 +97,24 @@ int main(int argc, char** argv)
 	{
 		goal_joint_values.erase(goal_joint_values.end()-1);
 		
-		for (size_t ng = 0; ng < goal_joint_values.size(); ng++)
-			goal_joint_values[ng] = start_joint_values[ng] - 20 * M_PI / 180;
+		//for (size_t ng = 0; ng < goal_joint_values.size(); ng++)
+			//goal_joint_values[ng] = start_joint_values[ng] - 20 * M_PI / 180;
 		
-		//goal_joint_values = {190 * M_PI / 180, -90 * M_PI / 180, 122 * M_PI / 180, -35 * M_PI / 180, 99 * M_PI / 180, 193 * M_PI / 180};
+		goal_joint_values = {190 * M_PI / 180, -90 * M_PI / 180, 122 * M_PI / 180, -35 * M_PI / 180, 99 * M_PI / 180, 193 * M_PI / 180};
 		group.setJointValueTarget(goal_joint_values);
 		std::cout << "\033[41mGET A NICE TARGET!" << std::endl;
 		for (size_t i = 0; i < goal_joint_values.size(); i++)
 			std::cout << goal_joint_values[i] << " ";
 		std::cout << "\033[0m" << std::endl;
 		
-		APF_path_planning_RT(obstacles, resolution, start_joint_values, goal_joint_values, path, monitor_ptr_udef);
+		APF_path_planning_RT(obstacles, resolution * sqrt(2), start_joint_values, goal_joint_values, path, monitor_ptr_udef,  kinematic_model);
 		
+		if (path.size() == 1)
+		{
+			std::cout << "\033[41mFail!" << "\033[0m" << std::endl;
+			return -1;
+		}
+
 		std::cout << "\033[41mGET THE PATH!" << "\033[0m" << std::endl;
 		
 		planning.trajectory_.joint_trajectory.joint_names = joint_names;
@@ -112,12 +122,11 @@ int main(int argc, char** argv)
 		trajectory_msgs::JointTrajectoryPoint tp;
 		for (size_t i =0; i < path.size(); i++)
 		{
-			ros::Duration step((i+1)*0.05);
+			ros::Duration step((i+1)*0.005);
 			tp.positions = path[i];
 			tp.time_from_start = step;
 			planning.trajectory_.joint_trajectory.points[i] = tp;
 		}
-		//path_convert_to_moveit_msgs(path_trajectory, path_state, path, joint_names, planning.trajectory_);
 			
 		group.execute(planning);
 		group.move();
