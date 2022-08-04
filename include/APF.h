@@ -4,11 +4,11 @@
 #define _USE_MATH_DEFINES
 #include <iostream>
 #include <stdlib.h>
+#include <random>
 #include <functional>
 #include <math.h>
 #include <string>
 #include <vector>
-#include <unordered_map>
 
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/imgcodecs.hpp>
@@ -39,34 +39,27 @@
 
 #include <ikfast_ur10.h>
 
-const double d1 =  0.1273;
-const double a2 = -0.612;
-const double a3 = -0.5723;
-const double d4 =  0.163941;
-const double d5 =  0.1157;
-const double d6 =  0.0922;
-
-const double joint_limit_min = -2 * M_PI;
-const double joint_limit_max = 2 * M_PI;
-
 #define ERR 1e-6
 
-struct Point_3D
+class  Point_3D
 {
-	double x, y, z;
+	private:
+		double x, y, z;
 
-	bool operator == (const Point_3D &p1) const{
-		return this->x == p1.x && this->y == p1.y && this->z == p1.z;
-	}
-};
+	public:
+		Point_3D(){};
+		Point_3D(double x, double y, double z) : x(x), y(y), z(z){};
+		~Point_3D(){};
+		bool operator == (const Point_3D &p1) const{
+			return this->x == p1.x && this->y == p1.y && this->z == p1.z;
+		}
+		void setX(double px){ x = px;}
+		void setY(double py){ y = py;}
+		void setZ(double pz){ z = pz;}
+		double getX(){return x;}
+		double getY(){return y;}
+		double getZ(){return z;}
 
-template<>
-struct std::hash<Point_3D>
-{
-	size_t operator() (const Point_3D &p3d) const noexcept
-	{
-		return std::hash<double>()(p3d.x) ^ std::hash<double>()(p3d.y) ^ std::hash<double>()(p3d.z);
-	}
 };
 
 double sign(double number)
@@ -79,8 +72,14 @@ double sign(double number)
 		return 0.0;
 }
 
-void FK_xyz(std::vector<double> joint_state, Point_3D coordinate, std::vector<double> &quaternion) 
+Point_3D FK_xyz(std::vector<double> joint_state,  std::vector<double> &quaternion) 
 {
+	const double d1 =  0.1273;
+	const double a2 = -0.612;
+	const double a3 = -0.5723;
+	const double d4 =  0.163941;
+	const double d5 =  0.1157;
+	const double d6 =  0.0922;
 	std::vector<double>::iterator q = joint_state.begin();
 	double s1 = sin(*q), c1 = cos(*q); q++;
 	double q23 = *q, q234 = *q, s2 = sin(*q), c2 = cos(*q); 
@@ -95,15 +94,17 @@ void FK_xyz(std::vector<double> joint_state, Point_3D coordinate, std::vector<do
 	double s23 = sin(q23), c23 = cos(q23);
 	double s234 = sin(q234), c234 = cos(q234);
 
-	coordinate.x = d6*c234*c1*s5 - a3*c23*c1 - a2*c1*c2 - d6*c5*s1 - d5*s234*c1 - d4*s1;
-	coordinate.y = d6*(c1*c5 + c234*s1*s5) + d4*c1 - a3*c23*s1 - a2*c2*s1 - d5*s234*s1;
-	coordinate.z = d1 + a3*s23 + a2*s2 - d5*(c23*c4 - s23*s4) - d6*s5*(c23*s4 + s23*c4);
+	Point_3D coordinate;
+	coordinate.setX( d6*c234*c1*s5 - a3*c23*c1 - a2*c1*c2 - d6*c5*s1 - d5*s234*c1 - d4*s1);
+	coordinate.setY(d6*(c1*c5 + c234*s1*s5) + d4*c1 - a3*c23*s1 - a2*c2*s1 - d5*s234*s1);
+	coordinate.setZ( d1 + a3*s23 + a2*s2 - d5*(c23*c4 - s23*s4) - d6*s5*(c23*s4 + s23*c4));
 
 	double trace = c234*c1*s5 - c5*s1 - c6*(c1*s5 - c234*c5*s1) - s234*s1*s6 + s234*c5*s6 - c234*c6;
 	quaternion[3] = sqrt(trace + 1.0) / 2.0;
 	quaternion[0] = ((-c234*s6 - s234*c5*c6) - (s6*(c1*s5 - c234*c5*s1) - s234*c6*s1)) / (4 * quaternion[3]);
 	quaternion[1] = ((-s6*(s1*s5 + c234*c1*c5) - s234*c1*c6) - (-s234*s5)) / (4 * quaternion[3]);
 	quaternion[2] = ((c1*c5 + c234*s1*s5) - ( c6*(s1*s5 + c234*c1*c5) - s234*c1*s6)) / (4 * quaternion[3]);
+	return coordinate;
 }
 
 void random_pose_generator(IkReal* eerot, IkReal* eetrans)
@@ -149,22 +150,26 @@ void random_pose_generator(IkReal* eerot, IkReal* eetrans)
 bool check_collision(std::vector<double> &joint_values, planning_scene_monitor::PlanningSceneMonitorPtr &monitor_ptr_udef, robot_model::RobotModelPtr &kinematic_model)
 {
 	//check collsion
-	planning_scene_monitor::LockedPlanningSceneRW ps(monitor_ptr_udef);
-	ps->getCurrentStateNonConst().update();
-	planning_scene::PlanningScenePtr scene = ps->diff();
-	scene->decoupleParent();
-
-	robot_state::RobotState state(scene->getRobotModel());
-	state.setJointGroupPositions("manipulator", joint_values);
-	scene->setCurrentState(state);
-
 	planning_scene::PlanningScene planning_scene(kinematic_model);
-	robot_state::RobotState& current_state = scene->getCurrentStateNonConst();
+	collision_detection::CollisionRequest collision_request;
+	collision_request.group_name = "manipulator";
+	collision_detection::CollisionResult collision_result;
+	robot_state::RobotState& current_state = planning_scene.getCurrentStateNonConst();
+	const robot_model::JointModelGroup* joint_model_group = current_state.getJointModelGroup("manipulator");
+	current_state.setJointGroupPositions(joint_model_group, joint_values);
 	robot_state::RobotState copied_state = planning_scene.getCurrentState();
-	copied_state.setJointGroupPositions("manipulator", joint_values);
-	copied_state.update();
 
-	return scene->isStateValid(copied_state, "manipulator");
+	planning_scene.checkSelfCollision(collision_request, collision_result, current_state);
+	bool isSelfCollision = collision_result.collision;
+	if (isSelfCollision)
+		return isSelfCollision;
+	else
+	{
+		collision_result.clear();
+		planning_scene.checkCollision(collision_request, collision_result, current_state);
+		bool isCollision = collision_result.collision;
+		return isCollision;
+	}
 }
 
 void find_avalible_solution(IkSolutionList<IkReal>& solutions, planning_scene_monitor::PlanningSceneMonitorPtr monitor_ptr_udef, robot_model::RobotModelPtr kinematic_model, std::vector<double>& start_joint_values, std::vector<double>& goal_joint_values)
@@ -199,7 +204,7 @@ void find_avalible_solution(IkSolutionList<IkReal>& solutions, planning_scene_mo
 		}
 		
 		// order those joints target with a rule: no collision(!state_valid=0) and minium joints changes(move_change_abs is min)
-		pair<bool, double> solvalues_i(!state_valid, move_change_abs);	
+		pair<bool, double> solvalues_i(state_valid, move_change_abs);	
 		std::priority_queue<std::pair<bool, double>, std::vector<pair<bool, double>>, std::greater<pair<bool, double>>> move_change_list;
 		
 		move_change_list.push(solvalues_i);
@@ -232,9 +237,9 @@ void pc2octomap(sensor_msgs::PointCloud &cloud, double resolution, std::vector<P
 	//Save all cube center of octomap if is necessary
 	for (octomap::OcTree::leaf_iterator it = tree.begin_leafs(), end = tree.end_leafs();it!=end;++it)
 	{
-		m_p.x = it.getX() * 1000;
-		m_p.y = it.getY() * 1000;
-		m_p.z = it.getZ() * 1000;
+		m_p.setX(it.getX());
+		m_p.setY (it.getY());
+		m_p.setZ (it.getZ());
 		if (tree.isNodeOccupied(*it))
 		{
 			//fprintf(fp, "%f %f %f\n", m_p.x, m_p.y, m_p.z);	
@@ -259,11 +264,11 @@ double APF_generate_RT(std::vector<Point_3D> &obstacles, double resolution, Poin
 	double C_rep = 20.0; //Repulsion coefficient
 	
 	double rep = 0;
-	double rat = C_ata * (pow((actual.x - goal.x),2) + pow((actual.y - goal.y),2) + pow((actual.z - goal.z),2));
+	double rat = C_ata * sqrt(pow((actual.getX() - goal.getX()),2) + pow((actual.getY() - goal.getY()),2) + pow((actual.getZ() - goal.getZ()),2));
 	
 	for(size_t i = 0; i < obstacles.size(); i++)
 	{
-		double REP = (pow((obstacles[i].x - actual.x),2) + pow((obstacles[i].y - actual.y),2) + pow((obstacles[i].z - actual.z),2));
+		double REP = sqrt(pow((obstacles[i].getX() - actual.getX()),2) + pow((obstacles[i].getY() - actual.getY()),2) + pow((obstacles[i].getZ() - actual.getZ()),2));
 		if (REP >= resolution)
 			continue;
 		else
@@ -287,11 +292,11 @@ void APF_generate_RT(std::vector<Point_3D> &obstacles, double resolution, Point_
 	double C_rep = 20.0; //Repulsion coefficient
 	
 	double rep = 0;
-	double rat = C_ata * sqrt(pow((actual.x - goal.x),2) + pow((actual.y - goal.y),2) + pow((actual.z - goal.z),2));
+	double rat = C_ata * sqrt(pow((actual.getX() - goal.getX()),2) + pow((actual.getY() - goal.getY()),2) + pow((actual.getZ() - goal.getZ()),2));
 	
 	for(size_t i = 0; i < obstacles.size(); i++)
 	{
-		double REP = sqrt(pow((obstacles[i].x - actual.x),2) + pow((obstacles[i].y - actual.y),2) + pow((obstacles[i].z - actual.z),2));
+		double REP = sqrt(pow((obstacles[i].getX() - actual.getX()),2) + pow((obstacles[i].getY() - actual.getY()),2) + pow((obstacles[i].getZ() - actual.getZ()),2));
 		if (REP > resolution)
 			continue;
 		else
@@ -299,29 +304,6 @@ void APF_generate_RT(std::vector<Point_3D> &obstacles, double resolution, Point_
 	}
 	*U = rat; U++;
 	*U = rep;
-}
-
-void APF_generate_OL(Point_3D start, std::vector<Point_3D> &obstacles, double resolution, Point_3D goal, std::unordered_map<Point_3D,double> &APF_map)
-{
-	/*
-	Input:  start		--- start posicion, unit mm
-		obstacles	--- Obstacles posicions
-		resolution	--- Scope of influence of every obstacle, should be equal to the resolution of octomap
-		goal		--- Goal posicion, unit mm
-	Output: APF_map		--- Artificial Potencial Field map
-	*/
-	double U[2] = {};
-	for (int x = 0; x < abs(goal.x-start.x)*10; x++)
-		for (int y = 0; y < abs(goal.y-start.y)*10; y++)
-			for (int z = 0; z < abs(goal.z-start.z)*10; z++)
-			{
-				Point_3D point;
-				point.x = x;
-				point.y = y;
-				point.z = z;
-				APF_generate_RT(obstacles, resolution, point, goal, U);
-				APF_map[point] = U[0] + U[1];
-			}
 }
 
 void APF_path_planning_RT(std::vector<Point_3D> &obstacles, double resolution, std::vector<double> &joint_start, std::vector<double> joint_goal, std::vector<std::vector<double>> &path, planning_scene_monitor::PlanningSceneMonitorPtr monitor_ptr_udef, robot_model::RobotModelPtr kinematic_model)
@@ -334,9 +316,8 @@ void APF_path_planning_RT(std::vector<Point_3D> &obstacles, double resolution, s
 	Output:	path		---Path generated
 	*/
 	
-	Point_3D goal_coordinate;
 	std::vector<double> goal_quaternion(4, 0.0);
-	FK_xyz(joint_goal, goal_coordinate, goal_quaternion);
+	Point_3D goal_coordinate = FK_xyz(joint_goal, goal_quaternion);
 	double step_length = 0.1 * M_PI / 180;
 	path.push_back(joint_start);
 	
@@ -348,17 +329,17 @@ void APF_path_planning_RT(std::vector<Point_3D> &obstacles, double resolution, s
 		for (size_t j_n = 0; j_n < joint_start.size(); j_n++)
 			next_joint_state[j_n] = path.back()[j_n] + sign(joint_goal[j_n] - path.back()[j_n]) * step_length;
 		
-		Point_3D eff;
 		std::vector<double> eff_quaternion(4, 0.0);
-		FK_xyz(next_joint_state, eff, eff_quaternion);
-		APF_generate_RT(obstacles, resolution*10, eff, goal_coordinate, U);
-		if (U[1] == 0.0 && check_collision(next_joint_state, monitor_ptr_udef, kinematic_model))
+		Point_3D eff = FK_xyz(next_joint_state, eff_quaternion);
+		
+		APF_generate_RT(obstacles, resolution, eff, goal_coordinate, U);
+		if (U[1] == 0.0 && !check_collision(next_joint_state, monitor_ptr_udef, kinematic_model))
 			path.push_back(next_joint_state);
 		else
 		{
 			std::cout << "\033[41mMaybe Collision" << "\033[0m" << std::endl;
-			std::cout << path.size() << std::endl;
-			double next_position[3] = {eff.x + sign(goal_coordinate.x - eff.x)*0.001,  eff.y + sign(goal_coordinate.y - eff.y)*0.001, eff.z + sign(goal_coordinate.z - eff.z)*0.001};
+			
+			double next_position[3] = {eff.getX() + sign(goal_coordinate.getX() - eff.getX())*0.001,  eff.getY() + sign(goal_coordinate.getY() - eff.getY())*0.001, eff.getZ() + sign(goal_coordinate.getZ() - eff.getZ())*0.001};
 			
 			double x, y, z, w;
 			x = eff_quaternion[0];
@@ -366,20 +347,20 @@ void APF_path_planning_RT(std::vector<Point_3D> &obstacles, double resolution, s
 			z = eff_quaternion[2];
 			w = eff_quaternion[3];
 			
-			IkReal* eerot; IkReal*eetrans; 
+			IkReal eerot[9]; IkReal eetrans[3]; 
 			IkSolutionList<IkReal> solutions;
-			*eerot = 1.0 - 2 * (y * y + z * z); eerot++;
-			*eerot = 2 * (x * y - w * z); eerot++;
-			*eerot = 2 * (w * y + x * z); eerot++;
-			*eetrans = next_position[0]; eetrans++;
-			*eerot = 2 * (x * y + w * z); eerot++;
-			*eerot = 1.0 - 2 * (x * x + z * z); eerot++;
-			*eerot = 2 * (z * y - w * x); eerot++;
-			*eetrans = next_position[1]; eetrans++;
-			*eerot = 2 * (x * z - w * y); eerot++;
-			*eerot = 2 * (z * y + x * w); eerot++;
-			*eerot = 1.0 - 2 * (x * x + y * y);
-			*eetrans = next_position[2];
+			eerot[0] = 1.0 - 2 * (y * y + z * z); 
+			eerot[1] = 2 * (x * y - w * z); 
+			eerot[2] = 2 * (w * y + x * z);
+			eetrans[0] = next_position[0];
+			eerot[3] = 2 * (x * y + w * z);
+			eerot[4] = 1.0 - 2 * (x * x + z * z);
+			eerot[5] = 2 * (z * y - w * x);
+			eetrans[1] = next_position[1];
+			eerot[6] = 2 * (x * z - w * y);
+			eerot[7] = 2 * (z * y + x * w);
+			eerot[8] = 1.0 - 2 * (x * x + y * y);
+			eetrans[2] = next_position[2];
 			
 			bool bSuccess = ComputeIk(eetrans, eerot, NULL, solutions);
 			if( !bSuccess ) 
@@ -410,57 +391,6 @@ void APF_path_planning_RT(std::vector<Point_3D> &obstacles, double resolution, s
 			std::cout << "\033[41mFINISH APF+A*!" << "\033[0m" << std::endl;
 			break;
 		}
-	}
-}
-
-void APF_path_planning_OL(std::unordered_map<Point_3D,double> APF_map, std::vector<double> joint_start, std::vector<double> joint_goal, std::vector<std::vector<double>> &path, planning_scene_monitor::PlanningSceneMonitorPtr monitor_ptr_udef, robot_model::RobotModelPtr kinematic_model)
-{
-	/*
-	Input:  APF_map		---Artificial Potencial Field map
-		joint_start	---Start joint state
-		joint_goal	---Goal joint state
-	Output:	path		---Path generated
-	*/
-	
-	Point_3D goal_coordinate;
-	std::vector<double> goal_quaternion(4, 0.0);
-	FK_xyz(joint_goal, goal_coordinate, goal_quaternion);
-	double step_length = 2*M_PI/180;
-	path.push_back(joint_start);
-	std::vector<double> Energy;
-	std::vector<std::vector<double>> joint_state_list;
-	
-	while(1)
-	{
-		for (double base = joint_start[0] - step_length; base <= joint_start[0] + step_length; base += step_length)
-			for (double upper_arm = joint_start[1] - step_length; upper_arm <= joint_start[1] + step_length; upper_arm += step_length)
-				for (double forearm = joint_start[2] - step_length; forearm <= joint_start[2] + step_length; forearm += step_length)
-					for (double wrist1 = joint_start[3] - step_length; wrist1 <= joint_start[3] + step_length; wrist1 += step_length)
-						for (double wrist2 = joint_start[4] - step_length; wrist2 <= joint_start[4] + step_length; wrist2 += step_length)
-							for (double wrist3 = joint_start[5] - step_length; wrist3 <= joint_start[5] + step_length; wrist3 += step_length)
-							{
-								std::vector<double> joint_state = {base, upper_arm, forearm, wrist1, wrist2, wrist3};
-								//check collision
-								if (check_collision(joint_state, monitor_ptr_udef, kinematic_model))
-									continue;
-								else
-								{
-									Point_3D eff;
-									std::vector<double> eff_quaternion(4, 0.0);
-									FK_xyz(joint_state, eff, eff_quaternion);
-									Energy.push_back(APF_map[eff]);
-									joint_state_list.push_back(joint_state);
-								}
-							}
-		int index = min_element(Energy.begin(),Energy.end()) - Energy.begin();
-		path.push_back(joint_state_list[index]);
-		joint_start = joint_state_list[index];
-		
-		Energy.clear();
-		joint_state_list.clear();
-		std::vector<std::vector<double>>::iterator it = path.end()-2;
-		if ((path.back() == joint_goal) || (path.back() == *it))
-			break;
 	}
 }
 

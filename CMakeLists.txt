@@ -162,7 +162,6 @@ include_directories(... ${Boost_INCLUDE_DIRS} ${OPENCV_INCLUDE_DIRS} ${EIGEN3_IN
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(apf src/APF.cpp)
 add_executable(apf_aubo src/APF_aubo.cpp)
-add_executable(node_check src/node_check.cpp)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -176,7 +175,6 @@ add_executable(node_check src/node_check.cpp)
 ## Specify libraries to link a library or executable target against
 target_link_libraries(apf ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${LAPACK_LIBRARIES} ${OPENCV_LIBRARIES} ${OCTOMAP_LIBRARIES})
 target_link_libraries(apf_aubo ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${LAPACK_LIBRARIES} ${OPENCV_LIBRARIES} ${OCTOMAP_LIBRARIES})
-target_link_libraries(node_check ${catkin_LIBRARIES})
 #############
 ## Install ##
 #############
@@ -218,12 +216,6 @@ install(TARGETS
   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
 )
 
-install(TARGETS
-  node_check
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
-)
 ## Mark cpp header files for installation
 # install(DIRECTORY include/${PROJECT_NAME}/
 #   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
