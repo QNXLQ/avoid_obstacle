@@ -2,6 +2,28 @@
 #define _CUBEOBSTACLE_H
 
 #include <cstdlib>
+
+class  Point_3D
+{
+	private:
+		double x, y, z;
+
+	public:
+		Point_3D(){};
+		Point_3D(double x, double y, double z) : x(x), y(y), z(z){};
+		~Point_3D(){};
+		bool operator == (const Point_3D &p1) const{
+			return this->x == p1.x && this->y == p1.y && this->z == p1.z;
+		}
+		void setX(double px){ x = px;}
+		void setY(double py){ y = py;}
+		void setZ(double pz){ z = pz;}
+		double getX(){return x;}
+		double getY(){return y;}
+		double getZ(){return z;}
+
+};
+
 class Cube_obstacle
 {
     private:

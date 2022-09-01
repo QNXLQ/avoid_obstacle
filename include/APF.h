@@ -38,29 +38,10 @@
 #include <octomap/OcTree.h>
 
 #include <ikfast_ur10.h>
+#include <CubeObstacle.h>
+
 
 #define ERR 1e-6
-
-class  Point_3D
-{
-	private:
-		double x, y, z;
-
-	public:
-		Point_3D(){};
-		Point_3D(double x, double y, double z) : x(x), y(y), z(z){};
-		~Point_3D(){};
-		bool operator == (const Point_3D &p1) const{
-			return this->x == p1.x && this->y == p1.y && this->z == p1.z;
-		}
-		void setX(double px){ x = px;}
-		void setY(double py){ y = py;}
-		void setZ(double pz){ z = pz;}
-		double getX(){return x;}
-		double getY(){return y;}
-		double getZ(){return z;}
-
-};
 
 double sign(double number)
 {
@@ -249,7 +230,6 @@ void pc2octomap(sensor_msgs::PointCloud &cloud, double resolution, std::vector<P
 	//fclose(fp);
 	
 }
-
 
 double APF_generate_RT(std::vector<Point_3D> &obstacles, double resolution, Point_3D actual, Point_3D goal)
 {

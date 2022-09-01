@@ -18,7 +18,7 @@ void generateBoxesFromOctomap(std::vector<moveit_msgs::CollisionObject>& boxes, 
 
 void Boxes_Publisher(int argc, char** argv)
 {
-	double resolution_boxes = 0.032;
+	double resolution_boxes = 0.05;
 	//ros::init (argc, argv, "boxes_generate");
    // ros::NodeHandle nh;
 	moveit::planning_interface::PlanningSceneInterface current_scene;
